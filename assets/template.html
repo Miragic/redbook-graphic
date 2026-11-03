@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小红书图文 · 【主题】</title>
+<!--
+================================================================================
+  小红书图文笔记 · 版式生成器（模板）
+  复制本文件改成你的主题，把 【主题】 这类占位都换掉。
+
+  【改哪里】
+    1) <title> 和下面注释里的主题名
+    2) 每张卡的标题 / 文案 / 卡数（改卡数记得同步 ck-badge 分子分母 + slot-hd）
+    3) 截图位：data-slot 换成你期望的文件名，ALIAS 表补上用户可能给的名字
+    4) 文案区：标题候选 / 正文 / 话题标签
+
+  【改尺寸】默认 3:4 竖版（小红书推荐）。要换尺寸只改 1 处，其余自动跟随：
+    · 只改 :root 的 --cw / --ch（卡片 CSS 宽高）
+      —— @page 由脚本自动同步，缩放与「截图≈尺寸」提示也自动跟随。
+    · 工具条 .bd 里的比例文字是纯展示，可顺手改，不改不影响导出。
+    常用预设（输出 = CSS × 2）：
+      3:4 竖版(默认)  --cw:540px  --ch:720px  → 输出 1080×1440
+      1:1 方形        --cw:540px  --ch:540px  → 输出 1080×1080
+      4:3 横版        --cw:720px  --ch:540px  → 输出 1440×1080
+      9:16 全屏竖版   --cw:540px  --ch:960px  → 输出 1080×1920
+  【怎么导出】见末尾注释，或跑 scripts/export_cards.sh
+================================================================================
+-->
+<style>
+  *{box-sizing:border-box}
+  :root{--cw:540px; --ch:720px}   /* 卡片 CSS 尺寸（默认 3:4 竖版）；换尺寸同时改下面 @page 的 size */
+  html,body{margin:0;padding:0}
+  body{
+    background:#E7EBF2; color:#22303F;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------------- 顶部工具条 ---------------- */
+  .bar{position:sticky; top:0; z-index:60; background:rgba(255,255,255,.94); backdrop-filter:blur(12px); border-bottom:1px solid #D5DCE8}
+  .bar-in{max-width:940px; margin:0 auto; padding:9px 18px; display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+  .bt{font-weight:800; font-size:14.5px; color:#4F4CC0; letter-spacing:-.01em}
+  .bd{font-size:12px; color:#7A8899; padding-right:6px}
+  .bar button{font:inherit; font-size:12.5px; font-weight:600; color:#4F4CC0; background:#EEF2FE; border:1px solid #D8DCFA; border-radius:8px; padding:6px 12px; cursor:pointer; transition:.15s}
+  .bar button:hover{background:#E1E5FB}
+  .bar button.ok{background:#4E9B6F; border-color:#4E9B6F; color:#fff}
+  #scaleTip{margin-left:auto; font-size:11.5px; color:#8B98A9}
+
+  /* ---------------- 卡片舞台 ---------------- */
+  .stage{max-width:940px; margin:0 auto; padding:24px 18px 44px; display:flex; flex-direction:column; align-items:center; gap:34px}
+  .slot{display:flex; flex-direction:column; align-items:flex-start; gap:9px}
+  .slot-hd{font-size:11.5px; color:#8B98A9; display:flex; align-items:center; gap:8px; padding-left:2px}
+  .slot-hd b{color:#4F4CC0; font-weight:700}
+  .slot-hd .fn{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:10.5px; background:#fff; border:1px solid #D5DCE8; padding:1px 6px; border-radius:4px; color:#6B7A8D}
+
+  /* ---------------- 卡片本体 ---------------- */
+  .xcard{width:var(--cw); height:var(--ch); flex:none; position:relative; overflow:hidden; background:#fff; display:flex; flex-direction:column; padding:36px 34px 26px}
+  .xcard:not(.cover)::before{content:""; position:absolute; left:0; right:0; top:0; height:6px; background:linear-gradient(90deg,#6C69DC 0%,#9C99F2 62%,#C3C1FA 100%)}
+  .xcard.cover{padding:38px 34px 26px; color:#fff; background:radial-gradient(120% 82% at 88% -6%, rgba(255,255,255,.30), rgba(255,255,255,0) 62%), linear-gradient(156deg,#4E4AC4 0%,#6C69DC 48%,#8B88EE 100%)}
+  .xcard.cover::after{content:""; position:absolute; right:-90px; bottom:-120px; width:330px; height:330px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.16),rgba(255,255,255,0) 68%)}
+
+  .ck-top{display:flex; align-items:center; gap:8px; margin-bottom:17px; position:relative; z-index:2}
+  .ck-chip{font-size:12px; font-weight:700; white-space:nowrap; padding:5px 12px; border-radius:999px; background:#EEF2FE; color:#4F4CC0; border:1px solid #DBDFFB}
+  .cover .ck-chip{background:rgba(255,255,255,.17); color:#fff; border-color:rgba(255,255,255,.34)}
+  .ck-badge{margin-left:auto; font-size:11px; font-weight:600; color:#AAB5C4; letter-spacing:.07em}
+  .cover .ck-badge{color:rgba(255,255,255,.66)}
+
+  /* 主体区：flex:1 + 垂直居中，自动吃掉剩余空间，避免底部大片空白 */
+  .ck-body{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; position:relative; z-index:2}
+
+  .ck-h1{font-size:46px; line-height:1.22; letter-spacing:-.028em; font-weight:800; margin:0 0 13px; position:relative; z-index:2}
+  .ck-h1.sm{font-size:38px; line-height:1.3; letter-spacing:-.024em; margin-bottom:11px}
+  .ck-h1 .hl{color:#6C69DC}
+  .cover .ck-h1 .hl{color:#FFE6A6}
+  .ck-sub{font-size:16.5px; line-height:1.5; margin:0 0 16px; color:#4A5A72; position:relative; z-index:2}
+  .cover .ck-sub{color:rgba(255,255,255,.88); font-size:16.5px; margin-bottom:18px}
+
+  .ck-checks{list-style:none; display:flex; gap:9px; flex-wrap:wrap; padding:0; margin:0 0 20px; position:relative; z-index:2}
+  .ck-checks li{font-size:13.5px; font-weight:600; padding:7px 13px; border-radius:9px; background:rgba(255,255,255,.17); border:1px solid rgba(255,255,255,.32); color:#fff}
+  .ck-checks li::before{content:"✓ "; font-weight:800; color:#FFE6A6}
+
+  .ck-rows{display:flex; flex-direction:column; gap:11px; position:relative; z-index:2}
+  .ck-row{display:flex; align-items:flex-start; gap:12px; background:#F6F9FD; border:1px solid #E4EBF5; border-radius:13px; padding:14px 15px; font-size:15.5px; line-height:1.52; color:#33414F}
+  .ck-row .num{flex:none; width:23px; height:23px; border-radius:7px; margin-top:1px; background:#6C69DC; color:#fff; font-size:12.5px; font-weight:800; display:grid; place-items:center}
+  .ck-row b{font-weight:700; color:#22303F}
+  .ck-row.warn{background:#FDF6F2; border-color:#F4DFD4}
+  .ck-row.warn .num{background:#E0734A}
+
+  .ck-kit{display:flex; flex-direction:column; gap:11px; position:relative; z-index:2}
+  .ck-kit .item{display:grid; grid-template-columns:104px minmax(0,1fr); gap:14px; align-items:center; border:1px solid #E4EBF5; border-radius:14px; padding:14px 15px; background:#FBFCFE}
+  .ck-kit .nm{font-size:15.5px; font-weight:800; color:#4F4CC0; letter-spacing:-.01em}
+  .ck-kit .nm i{display:block; font-style:normal; font-size:10.5px; font-weight:600; color:#A8B3C2; letter-spacing:.04em; margin-top:3px}
+  .ck-kit .ds{font-size:14px; line-height:1.55; color:#4A5A72}
+
+  .ck-note{margin-top:16px; padding:14px 16px; border-radius:13px; background:#EEF2FE; border:1px solid #DCE0FB; color:#3E4A8F; font-size:14.5px; line-height:1.58; font-weight:700}
+  .ck-note.amber{background:#FFF8E9; border-color:#F2E3BE; color:#8A6A16}
+
+  /* 分类 chips（可选，做分类主题时用） */
+  .catg{margin-bottom:16px; position:relative; z-index:2}
+  .catg:last-child{margin-bottom:0}
+  .catg .ttl{font-size:12.5px; font-weight:700; letter-spacing:.04em; margin-bottom:9px; display:flex; align-items:center; gap:7px}
+  .catg .ttl .dot{width:7px; height:7px; border-radius:50%}
+  .catg.exp .ttl{color:#C4552C} .catg.exp .ttl .dot{background:#E0734A}
+  .catg.inc .ttl{color:#3C7F5B} .catg.inc .ttl .dot{background:#4E9B6F}
+  .catg .grp{display:flex; flex-wrap:wrap; gap:7px}
+  .catg .grp span{font-size:13px; padding:6px 11px; border-radius:8px; line-height:1.2; background:#F6F9FD; border:1px solid #E4EBF5; color:#3E4C5C}
+  .catg.exp .grp span{background:#FDF6F2; border-color:#F3E0D6; color:#8C4A2A}
+  .catg.inc .grp span{background:#EDF7F1; border-color:#D3E9DD; color:#2F6B4C}
+
+  /* 分栏：截图 + 说明 */
+  .ck-split{flex:1; min-height:0; display:grid; grid-template-columns:250px minmax(0,1fr); gap:20px; align-items:stretch; margin-bottom:12px; position:relative; z-index:2}
+  .shotbox{min-height:0; border-radius:15px; overflow:hidden; background:#F4F8FC; border:1px solid #E1E8F3; display:flex; align-items:center; justify-content:center}
+  .shotbox img,.shotbox video{max-width:100%; max-height:100%; display:block; object-fit:contain}
+  .ck-points{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:13px; align-self:start}
+  .ck-points li{font-size:15px; line-height:1.5; color:#33414F; padding-left:23px; position:relative}
+  .ck-points li::before{content:""; position:absolute; left:3px; top:8px; width:8px; height:8px; border-radius:50%; background:#6C69DC; box-shadow:0 0 0 3px #EEF2FE}
+  .ck-points li b{font-weight:700; color:#22303F}
+  .ck-points li small{display:block; font-size:12.5px; color:#8B98A9; margin-top:4px; line-height:1.5}
+
+  .ck-gate{display:flex; flex-direction:column; gap:9px; margin-top:16px; padding-top:15px; border-top:1px dashed #E1E8F3}
+  .ck-gate .g{font-size:13.5px; line-height:1.5; color:#7A8899; padding-left:17px; position:relative}
+  .ck-gate .g::before{content:"·"; position:absolute; left:4px; font-weight:800; color:#B4BED0}
+
+  .ck-foot{margin-top:auto; padding-top:15px; display:flex; align-items:center; gap:10px; position:relative; z-index:2}
+  .ck-foot .go{font-size:14.5px; font-weight:700; color:#4F4CC0; letter-spacing:-.01em}
+  .cover .ck-foot .go{color:#FFE6A6}
+  .ck-mark{margin-left:auto; font-size:10.5px; color:#B4BED0; letter-spacing:.04em}
+  .cover .ck-mark{color:rgba(255,255,255,.55)}
+
+  /* 封面示意小卡 */
+  .mock{background:#fff; border-radius:17px; padding:18px 19px; margin:4px 0 0; box-shadow:0 14px 34px rgba(28,26,84,.26); position:relative; z-index:2; display:grid; grid-template-columns:1fr 1fr; gap:15px 16px}
+  .mock .cell .k{font-size:11.5px; color:#96A2B2; letter-spacing:.04em; margin-bottom:4px}
+  .mock .cell .v{font-size:23px; font-weight:800; letter-spacing:-.02em; color:#22303F}
+  .mock .cell .v.exp{color:#E0734A} .mock .cell .v.inc{color:#4E9B6F}
+  .mock .tagline{grid-column:1 / -1; font-size:10.5px; color:#B4BED0; letter-spacing:.06em; border-top:1px solid #EEF2F8; padding-top:10px; margin-top:2px}
+
+  /* 留白块（截图位：data-slot 指定期望文件名，JS 自动加载） */
+  .shot-ph{width:100%; height:100%; min-height:80px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; text-align:center; padding:16px; border:1.5px dashed #B9C8E0; border-radius:13px; background:repeating-linear-gradient(45deg,#F7FAFE 0 10px,#EFF5FC 10px 20px); color:#7A8899}
+  .shot-ph .ico{font-size:22px; opacity:.7}
+  .shot-ph .lb{font-size:13px; font-weight:700; color:#5A6A80}
+  .shot-ph .fn2{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:10px; background:#fff; border:1px solid #D5DCE8; padding:2px 7px; border-radius:5px; color:#6B7A8D}
+
+  /* ---------------- 文案区 ---------------- */
+  .copywrap{max-width:940px; margin:0 auto 70px; padding:0 18px}
+  .copyhd{font-size:19px; font-weight:800; margin:6px 0; letter-spacing:-.01em; display:flex; align-items:center; gap:10px}
+  .copyhd .n{flex:none; width:27px; height:27px; border-radius:8px; background:#6C69DC; color:#fff; font-size:13px; display:grid; place-items:center}
+  .copysub{font-size:13.5px; color:#7A8899; margin:0 0 16px; padding-left:37px}
+  .blk{background:#fff; border:1px solid #E1E8F3; border-radius:15px; padding:16px 18px; margin:0 0 20px; box-shadow:0 2px 12px rgba(60,80,120,.05)}
+  .blk .hd{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+  .blk .hd .t{font-size:14px; font-weight:800; color:#22303F}
+  .blk .hd .c{font-size:11.5px; color:#8B98A9; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .blk .hd button{margin-left:auto; font:inherit; font-size:12.5px; font-weight:600; color:#4F4CC0; background:#EEF2FE; border:1px solid #D8DCFA; border-radius:8px; padding:5px 13px; cursor:pointer; transition:.15s}
+  .blk .hd button:hover{background:#E1E5FB}
+  .blk .hd button.ok{background:#4E9B6F; border-color:#4E9B6F; color:#fff}
+  pre.tx{margin:0; white-space:pre-wrap; word-break:break-word; font-family:inherit; font-size:14px; line-height:1.85; color:#2C3A48; background:#F8FAFD; border:1px solid #EAF0F8; border-radius:11px; padding:14px 16px}
+  pre.tx.small{font-size:13.5px; line-height:1.9}
+
+  /* ============================================================
+     打印 / 另存为 PDF —— 每张卡正好占一页，页面尺寸 == 卡片尺寸
+     ★ @page 的 size 不支持 CSS 变量，已由脚本第 0 段按 --cw/--ch 动态同步；
+       此处静态值仅作无 JS 时的兜底，正常换尺寸不用动它。
+     ============================================================ */
+  @page{size:540px 720px; margin:0}   /* 兜底默认 3:4；实际由 JS 同步 */
+  @media print{
+    .bar,.copywrap,.slot-hd{display:none}
+    body{background:#fff}
+    .stage{gap:0; padding:0; zoom:1 !important}
+    .slot{display:block}
+    .xcard{break-after:page; break-inside:avoid}
+    .xcard:last-of-type{break-after:auto}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="bar-in">
+    <span class="bt">小红书图文</span>
+    <span class="bd">【N】张 · 3:4 竖版（540×720）</span>
+    <button data-copy="c-title">复制标题</button>
+    <button data-copy="c-body">复制正文</button>
+    <button data-copy="c-tags">复制标签</button>
+    <span id="scaleTip"></span>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+
+  <!-- ============ 1 · 封面 ============ -->
+  <div class="slot">
+    <div class="slot-hd"><b>第 1 张</b> 封面 · 纯排版</div>
+    <div class="xcard cover">
+      <div class="ck-top">
+        <span class="ck-chip">【标签1】</span>
+        <span class="ck-chip">【标签2】</span>
+        <span class="ck-badge">01 / 【N】</span>
+      </div>
+      <h1 class="ck-h1">【主标题<br>第二行<span class="hl">高亮词</span>】</h1>
+      <p class="ck-sub">【副标题一句话】</p>
+      <ul class="ck-checks">
+        <li>【卖点1】</li>
+        <li>【卖点2】</li>
+        <li>【卖点3】</li>
+      </ul>
+      <div class="ck-body">
+        <!-- 封面不放真实截图，用 CSS 画的示意卡当视觉锚点 -->
+        <div class="mock">
+          <div class="cell"><div class="k">【小项1】</div><div class="v">【值】</div></div>
+          <div class="cell"><div class="k">【小项2】</div><div class="v exp">【值】</div></div>
+          <div class="cell"><div class="k">【小项3】</div><div class="v inc">【值】</div></div>
+          <div class="cell"><div class="k">【小项4】</div><div class="v">【值】</div></div>
+          <div class="tagline">【示意水印】</div>
+        </div>
+      </div>
+      <div class="ck-foot">
+        <span class="go">往下看完整做法 ↓</span>
+        <span class="ck-mark">【品牌/主题】</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 · 分栏卡（截图 + 要点）示例 ============ -->
+  <div class="slot">
+    <div class="slot-hd"><b>第 2 张</b> 【模块名】</div>
+    <div class="xcard">
+      <div class="ck-top">
+        <span class="ck-chip">01 · 【模块】</span>
+        <span class="ck-badge">02 / 【N】</span>
+      </div>
+      <div class="ck-split">
+        <div class="shotbox">
+          <!-- 截图位：data-slot 写期望文件名；ALIAS 补用户可能给的名字 -->
+          <div class="shot-ph" data-slot="x2-【图名】.png">
+            <span class="ico">📷</span>
+            <span class="lb">此处放【图】截图</span>
+            <span class="fn2">建议命名 images/x2-【图名】.png</span>
+          </div>
+        </div>
+        <ul class="ck-points">
+          <li><b>【要点标题1】</b><small>【补充说明】</small></li>
+          <li><b>【要点标题2】</b><small>【补充说明】</small></li>
+          <li><b>【要点标题3】</b></li>
+        </ul>
+      </div>
+      <div class="ck-foot">
+        <span class="go">【引导语】 ↓</span>
+        <span class="ck-mark">【品牌/主题】</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3 · 纯文字编号卡示例 ============ -->
+  <div class="slot">
+    <div class="slot-hd"><b>第 3 张</b> 【模块名】</div>
+    <div class="xcard">
+      <div class="ck-top">
+        <span class="ck-chip">02 · 【模块】</span>
+        <span class="ck-badge">03 / 【N】</span>
+      </div>
+      <h1 class="ck-h1 sm">【本卡标题】</h1>
+      <div class="ck-body">
+        <div class="ck-rows">
+          <div class="ck-row"><span class="num">1</span><span><b>【要点】</b>【说明】</span></div>
+          <div class="ck-row"><span class="num">2</span><span><b>【要点】</b>【说明】</span></div>
+          <div class="ck-row"><span class="num">3</span><span><b>【要点】</b>【说明】</span></div>
+          <div class="ck-row warn"><span class="num">!</span><span><b>【提醒】</b>【注意点】</span></div>
+        </div>
+      </div>
+      <div class="ck-foot">
+        <span class="go">【引导语】 ↓</span>
+        <span class="ck-mark">【品牌/主题】</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4 · 分类 chips 卡示例（.catg + .ck-note） ============ -->
+  <div class="slot">
+    <div class="slot-hd"><b>第 4 张</b> 【模块名】</div>
+    <div class="xcard">
+      <div class="ck-top">
+        <span class="ck-chip">03 · 【模块】</span>
+        <span class="ck-badge">04 / 【N】</span>
+      </div>
+      <h1 class="ck-h1 sm">【本卡标题】</h1>
+      <div class="ck-body">
+        <div class="catg exp">
+          <div class="ttl"><span class="dot"></span>【分类组1标题】</div>
+          <div class="grp"><span>【项】</span><span>【项】</span><span>【项】</span><span>【项】</span></div>
+        </div>
+        <div class="catg inc">
+          <div class="ttl"><span class="dot"></span>【分类组2标题】</div>
+          <div class="grp"><span>【项】</span><span>【项】</span></div>
+        </div>
+        <div class="ck-note amber">【强调提示（.ck-note，去掉 amber 则变蓝色）】</div>
+      </div>
+      <div class="ck-foot">
+        <span class="go">【引导语】 ↓</span>
+        <span class="ck-mark">【品牌/主题】</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5 · 三件套卡示例（.ck-kit） ============ -->
+  <div class="slot">
+    <div class="slot-hd"><b>第 5 张</b> 【模块名】</div>
+    <div class="xcard">
+      <div class="ck-top">
+        <span class="ck-chip">04 · 【模块】</span>
+        <span class="ck-badge">05 / 【N】</span>
+      </div>
+      <h1 class="ck-h1 sm">【本卡标题】</h1>
+      <div class="ck-body">
+        <div class="ck-kit">
+          <div class="item"><div class="nm">【名1】<i>【英文/副标签】</i></div><div class="ds">【一句话描述】</div></div>
+          <div class="item"><div class="nm">【名2】<i>【副标签】</i></div><div class="ds">【一句话描述】</div></div>
+          <div class="item"><div class="nm">【名3】<i>【副标签】</i></div><div class="ds">【一句话描述】</div></div>
+        </div>
+      </div>
+      <div class="ck-foot">
+        <span class="go">【引导语】 ↓</span>
+        <span class="ck-mark">【品牌/主题】</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ … 更多卡片照上面的 pattern 加 ============ -->
+  <!-- 其它组件（.ck-gate 门槛小字、.ck-split 分栏、.ck-points 要点）用法见 references/card-spec.md -->
+
+</div>
+
+<!-- ================= 文案区 ================= -->
+<div class="copywrap">
+  <h2 class="copyhd"><span class="n">文</span>发布文案</h2>
+  <p class="copysub">点「复制」直接贴进小红书。标题从候选里挑一个。</p>
+
+  <div class="blk">
+    <div class="hd">
+      <span class="t">标题候选（挑一个）</span>
+      <span class="c">小红书标题上限 20 字</span>
+      <button data-copy="c-title">复制</button>
+    </div>
+<pre class="tx" id="c-title">【标题候选1】
+【标题候选2】
+【标题候选3】
+【标题候选4】
+【标题候选5】</pre>
+  </div>
+
+  <div class="blk">
+    <div class="hd">
+      <span class="t">正文</span>
+      <span class="c">约 480 字</span>
+      <button data-copy="c-body">复制</button>
+    </div>
+<pre class="tx" id="c-body">【正文：emoji 起段 + 短句分段，400~500 字，结尾给 CTA】</pre>
+  </div>
+
+  <div class="blk">
+    <div class="hd">
+      <span class="t">话题标签</span>
+      <span class="c">10 个</span>
+      <button data-copy="c-tags">复制</button>
+    </div>
+<pre class="tx small" id="c-tags">#【标签1】 #【标签2】 #【标签3】 #【标签4】 #【标签5】 #【标签6】 #【标签7】 #【标签8】 #【标签9】 #【标签10】</pre>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   0) 尺寸同步：@page 自动跟随 :root 的 --cw/--ch
+      → 换尺寸只需改 :root 一处，@page 无需手改（下方静态 @page 仅兜底）
+   ============================================================ */
+(function(){
+  var root = getComputedStyle(document.documentElement);
+  var cw = parseFloat(root.getPropertyValue('--cw'));
+  var ch = parseFloat(root.getPropertyValue('--ch'));
+  if (cw && ch){
+    var st = document.createElement('style');
+    st.textContent = '@page{size:' + cw + 'px ' + ch + 'px; margin:0}';
+    document.head.appendChild(st);
+  }
+})();
+
+/* ============================================================
+   1) 自动加载配图：读 .shot-ph 的 data-slot，按 ALIAS + 自身依次探测 images/
+   ============================================================ */
+(function(){
+  var DIR = 'images/';
+  /* 期望文件名 → [允许替代的文件名]，兼容用户给的带空格/错字/编码 */
+  var ALIAS = {
+    'x2-【图名】.png': ['【用户可能的命名1】.png', '【用户可能的命名2】.png']
+    /* 每条建议同时挂 原名 / 去空格 / %20 编码 三种写法 */
+  };
+  function probe(name, cb){
+    var isVideo = /\.(mp4|mov|webm|m4v)$/i.test(name);
+    var el = document.createElement(isVideo ? 'video' : 'img');
+    var settled = false;
+    function ok(){   if (!settled){ settled = true; cb(el); } }
+    function fail(){ if (!settled){ settled = true; cb(null); } }
+    el.addEventListener(isVideo ? 'loadedmetadata' : 'load', ok);
+    el.addEventListener('error', fail);
+    setTimeout(fail, 20000);
+    if (isVideo){ el.controls = true; el.muted = true; el.loop = true; el.setAttribute('playsinline', ''); el.preload = 'metadata'; }
+    el.alt = name;
+    el.src = DIR + name;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.shot-ph'), function(ph){
+    var want = ph.getAttribute('data-slot');
+    if (!want) return;
+    var list = (ALIAS[want] || []).concat([want]);
+    (function tryNext(i){
+      if (i >= list.length) return;
+      probe(list[i], function(el){
+        if (el){ ph.parentNode.replaceChild(el, ph); } else { tryNext(i + 1); }
+      });
+    })(0);
+  });
+})();
+
+/* ============================================================
+   2) 复制按钮
+   ============================================================ */
+(function(){
+  function copyText(text, btn){
+    function done(){ var old = btn.textContent; btn.textContent = '已复制'; btn.classList.add('ok'); setTimeout(function(){ btn.textContent = old; btn.classList.remove('ok'); }, 1400); }
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, ta.value.length);
+      try { document.execCommand('copy'); done(); }
+      catch(e){ alert('复制失败，请手动选中文字复制'); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, fallback); } else { fallback(); }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'), function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.getElementById(btn.getAttribute('data-copy'));
+      if (el) copyText(el.textContent, btn);
+    });
+  });
+})();
+
+/* ============================================================
+   3) 窄窗口自动缩放（保证卡片完整可见；拉宽到 1:1 即为高清截图）
+   ============================================================ */
+(function(){
+  var stage = document.getElementById('stage');
+  var tip = document.getElementById('scaleTip');
+  var PAD = 56;
+  var root = getComputedStyle(document.documentElement);
+  var CARD = parseFloat(root.getPropertyValue('--cw')) || 540;   // 卡片宽，跟随 :root
+  var OUTW = Math.round(parseFloat(root.getPropertyValue('--cw')) * 2);
+  var OUTH = Math.round(parseFloat(root.getPropertyValue('--ch')) * 2);
+  function fit(){
+    var avail = Math.min(document.documentElement.clientWidth, 940) - PAD;
+    var s = Math.min(1, avail / CARD);
+    s = Math.max(0.42, Math.round(s * 100) / 100);
+    stage.style.zoom = s;
+    tip.textContent = s >= 1 ? '原始尺寸 1:1 · 截图 ≈ ' + OUTW + '×' + OUTH : '缩放 ' + Math.round(s * 100) + '% · 拉宽窗口可恢复 1:1';
+  }
+  fit();
+  window.addEventListener('resize', fit);
+  setTimeout(fit, 300);
+})();
+</script>
+</body>
+</html>
